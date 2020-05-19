@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,10 +10,33 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var redisPassword string
+var redisHost string
+var redisPort int
+
+func init() {
+	const (
+		defaultPassword = ""
+		usagePassword   = "Redis-Server Auth"
+		defaultHost     = "localhost"
+		usageHost       = "Redis-server listening IP"
+		defaultPort     = 6379
+		usagePort       = "Redis-server listening port"
+	)
+	flag.StringVar(&redisPassword, "password", defaultPassword, usagePassword)
+	flag.StringVar(&redisPassword, "P", defaultPassword, usagePassword+" (shorthand)")
+	flag.StringVar(&redisHost, "host", defaultHost, usageHost)
+	flag.StringVar(&redisHost, "h", defaultHost, usageHost+" (shorthand)")
+	flag.IntVar(&redisPort, "port", defaultPort, usagePort)
+	flag.IntVar(&redisPort, "p", defaultPort, usagePort+" (shorthand)")
+}
+
+// var password = flag.String("password", "", "redis-server password")
+
 func rClient() *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
+		Addr:     fmt.Sprintf("%s:%d", redisHost, redisPort),
+		Password: redisPassword,
 	})
 
 	return client
@@ -60,6 +84,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	flag.Parse()
 	r := mux.NewRouter()
 	// Routes consist of a path and a handler function.
 	r.HandleFunc("/status", statusHandler)
