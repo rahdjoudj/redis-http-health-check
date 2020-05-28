@@ -83,11 +83,42 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func lbStatusHandler(w http.ResponseWriter, r *http.Request) {
+	// creates a client
+	client := rClient()
+	// getting redis-server role status
+	rawstatus, err := role(client)
+	if err != nil {
+		// Handle unavailable redis-server
+		w.WriteHeader(http.StatusServiceUnavailable)
+		currentStatus := "Unavailable"
+		w.Write([]byte(fmt.Sprintf("Redis Server %s - Cannot connect\n", currentStatus)))
+	} else {
+		// Parse Redis-server status response
+		// Response samples:
+		// [master 0 []]   Master without Slave
+		// [slave 127.0.0.1 6379 connected 0]  Slave of a Master Connected and synced
+		// [slave 127.0.0.1 6379 connect 0]  Slave of a Master trying to connect
+		// [slave 127.0.0.1 6379 sync 0]  Slave of a Master syncing
+		status := rawstatus.([]interface{})
+		currentRole := status[0]
+		currentStatus := "Not serving traffic"
+		if currentRole == "master" {
+			w.WriteHeader(http.StatusOK)
+			currentStatus = "Healthy"
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+		w.Write([]byte(fmt.Sprintf("Redis %s %s\n", currentRole, currentStatus)))
+	}
+}
+
 func main() {
 	flag.Parse()
 	r := mux.NewRouter()
 	// Routes consist of a path and a handler function.
 	r.HandleFunc("/status", statusHandler)
+	r.HandleFunc("/lb_status", lbStatusHandler)
 
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(":8000", r))
